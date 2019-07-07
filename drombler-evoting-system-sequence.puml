@@ -1,0 +1,95 @@
+@startuml
+autonumber
+
+actor Citizen
+participant "E-Voting App" as Client
+participant "SMS App" as SMS
+participant "E-Voting System" as EVoting
+participant "National Identity Provider" as NIdP
+participant "National Information Provider" as NInfoP
+participant NGO
+actor Parlamentarier
+
+autonumber 100
+Citizen -> Client: Login
+activate Client
+Client -> NIdP: OAuth 2 Authentication Request for evoting client
+activate NIdP
+NIdP -> Client: OAuth 2 JWS Token
+deactivate NIdP
+deactivate Client
+
+...
+
+autonumber 200
+Citizen -> Client: Fill in forms
+
+...
+
+autonumber 300
+Citizen -> Client: Send vote
+activate Client
+Client -> NInfoP: get e-voting token for (ballot id)
+activate NInfoP
+NInfoP -> NIdP: OAuth Authorization Request (?)
+activate NIdP
+NIdP -> NInfoP: OK
+deactivate NIdP
+NInfoP -> NInfoP: check if there is a confirmed SMS (user id, ballot id)
+NInfoP -> NInfoP: if no confirmed SMS token: create secure random for (user id, ballot id) -> userSR
+NInfoP -> NInfoP: store (user id, ballot id, SMS token, confirmed: false)
+NInfoP -> Client: cryptographically signed userSR/ certificate
+Client -> Client: counter sign userSR/ certificate
+Client -> Client: store counter signed (userSR)
+NInfoP -> SMS: send SMS token (e.g. 6 digits)
+deactivate NInfoP
+deactivate Client
+
+...
+
+autonumber 400
+Citizen -> Client: Confirm Vote (SMS token)
+activate Client
+Client -> EVoting: send vote (ballot, SMS token, counter signed userSR)
+activate EVoting
+EVoting -> NIdP: OAuth Authorization Request (?)
+activate NIdP
+NIdP -> EVoting: OK
+deactivate NIdP
+EVoting -> EVoting: check if no confirmed vote (userSR, ballot id)
+EVoting -> NInfoP: confirm SMS token (OAuth token, ballot id, SMS token, counter signed userSR)
+activate NInfoP
+NInfoP -> NIdP: OAuth Authorization Request (?)
+activate NIdP
+NIdP -> NInfoP: OK
+deactivate NIdP
+NInfoP -> NInfoP: validate SMS token
+NInfoP -> NInfoP: mark userSR for (user id, ballot id) as confirmed
+NInfoP -> EVoting: OK
+deactivate NInfoP
+EVoting -> EVoting: store (counter signed userSR, ballot id, confirmed: false)
+EVoting -> EVoting: create secure random for (userSR, ballot id) -> ballotSR
+EVoting -> EVoting: store (ballotSR, ballot, confirmed: false)
+EVoting -> Client: cryptographically signed (ballotSR, ballot)/ certificate
+deactivate EVoting
+Client -> Client: check signature (?)
+Client -> Client: check received ballot same as sent
+Client -> Client: counter sign (ballotSR, ballot)/ certificate
+Client -> Client: store counter signed (ballotSR, ballot)
+Client -> EVoting: confirm vote (counter signed (ballotSR, ballot), userSR)
+activate EVoting
+EVoting -> EVoting: mark (userSR, ballot id) as confirmed
+EVoting -> EVoting: mark (ballotSR, ballot id) as confirmed
+EVoting -> Client: OK
+deactivate EVoting
+deactivate Client
+
+
+
+...
+
+
+
+
+
+@enduml
